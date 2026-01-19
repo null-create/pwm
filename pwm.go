@@ -9,18 +9,85 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"syscall"
 
+	"github.com/charmbracelet/lipgloss"
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/term"
 )
 
 const (
-	dataFile   = "pw.enc"
+	dataFile   = "passwords.enc"
 	saltSize   = 32
 	keySize    = 32
 	iterations = 100000
+)
+
+var (
+	// Color palette
+	primaryColor   = lipgloss.Color("#7C3AED")
+	secondaryColor = lipgloss.Color("#EC4899")
+	successColor   = lipgloss.Color("#10B981")
+	errorColor     = lipgloss.Color("#EF4444")
+	mutedColor     = lipgloss.Color("#6B7280")
+	accentColor    = lipgloss.Color("#3B82F6")
+
+	// Styles
+	titleStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(primaryColor).
+			MarginBottom(1).
+			Padding(0, 2)
+
+	headerStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(secondaryColor).
+			MarginTop(1).
+			MarginBottom(1)
+
+	labelStyle = lipgloss.NewStyle().
+			Foreground(accentColor).
+			Bold(true)
+
+	valueStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("#E5E7EB"))
+
+	successStyle = lipgloss.NewStyle().
+			Foreground(successColor).
+			Bold(true).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(successColor)
+
+	errorStyle = lipgloss.NewStyle().
+			Foreground(errorColor).
+			Bold(true).
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(errorColor)
+
+	boxStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(primaryColor).
+			Padding(1, 2).
+			MarginBottom(1)
+
+	separatorStyle = lipgloss.NewStyle().
+			Foreground(mutedColor).
+			Bold(true)
+
+	mutedStyle = lipgloss.NewStyle().
+			Foreground(mutedColor).
+			Italic(true)
+
+	commandStyle = lipgloss.NewStyle().
+			Foreground(accentColor).
+			Bold(true)
+
+	usageStyle = lipgloss.NewStyle().
+			Padding(1, 2).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(mutedColor)
 )
 
 type Credential struct {
@@ -36,6 +103,8 @@ type PasswordStore struct {
 }
 
 func main() {
+	printBanner()
+
 	if len(os.Args) < 2 {
 		printUsage()
 		os.Exit(1)
@@ -50,13 +119,15 @@ func main() {
 		listPasswords()
 	case "get":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: pwm get <name>")
+			fmt.Println(errorStyle.Render("❌ Error: Missing password name"))
+			fmt.Println(mutedStyle.Render("Usage: password-manager get <name>"))
 			os.Exit(1)
 		}
 		getPassword(os.Args[2])
 	case "delete":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: pwm delete <name>")
+			fmt.Println(errorStyle.Render("❌ Error: Missing password name"))
+			fmt.Println(mutedStyle.Render("Usage: password-manager delete <name>"))
 			os.Exit(1)
 		}
 		deletePassword(os.Args[2])
@@ -66,119 +137,145 @@ func main() {
 	}
 }
 
+func printBanner() {
+	banner := `
+ ╔═══════════════════════════════════════╗
+ ║   🔐 Secure Password Manager 🔐      ║
+ ╚═══════════════════════════════════════╝
+`
+	fmt.Println(titleStyle.Render(banner))
+}
+
 func printUsage() {
-	fmt.Println("Secure Password Manager")
-	fmt.Println("\nUsage:")
-	fmt.Println("  pwm add                  - Add a new password")
-	fmt.Println("  pwm list                 - List all stored passwords")
-	fmt.Println("  pwm get <name>           - Retrieve a specific password")
-	fmt.Println("  pwm delete <name>        - Delete a password")
+	usage := usageStyle.Render(
+		commandStyle.Render("Available Commands:\n\n") +
+			"  " + labelStyle.Render("add") + "              Add a new password\n" +
+			"  " + labelStyle.Render("list") + "             List all stored passwords\n" +
+			"  " + labelStyle.Render("get <name>") + "       Retrieve a specific password\n" +
+			"  " + labelStyle.Render("delete <name>") + "    Delete a password\n",
+	)
+	fmt.Println(usage)
 }
 
 func addPassword() {
+	fmt.Println(headerStyle.Render("➕ Adding New Password"))
+
 	var cred Credential
 
-	fmt.Print("Enter name/identifier: ")
+	fmt.Print(labelStyle.Render("Name/Identifier: "))
 	fmt.Scanln(&cred.Name)
 
-	fmt.Print("Enter URL: ")
+	fmt.Print(labelStyle.Render("URL: "))
 	fmt.Scanln(&cred.URL)
 
-	fmt.Print("Enter username: ")
+	fmt.Print(labelStyle.Render("Username: "))
 	fmt.Scanln(&cred.Username)
 
-	fmt.Print("Enter password: ")
+	fmt.Print(labelStyle.Render("Password: "))
 	passBytes, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		fmt.Println("\nError reading password:", err)
+		fmt.Println(errorStyle.Render("❌ Error reading password: " + err.Error()))
 		os.Exit(1)
 	}
 	cred.Password = string(passBytes)
 	fmt.Println()
 
-	masterPass := promptMasterPassword("Enter master password: ")
+	masterPass := promptMasterPassword(labelStyle.Render("🔑 Master Password: "))
 
 	store, err := loadStore(masterPass)
 	if err != nil && !os.IsNotExist(err) {
-		fmt.Println("Error loading store:", err)
+		fmt.Println(errorStyle.Render("❌ Error loading store: " + err.Error()))
 		os.Exit(1)
 	}
 
 	store.Credentials = append(store.Credentials, cred)
 
 	if err := saveStore(store, masterPass); err != nil {
-		fmt.Println("Error saving store:", err)
+		fmt.Println(errorStyle.Render("❌ Error saving store: " + err.Error()))
 		os.Exit(1)
 	}
 
-	fmt.Println("Password saved successfully!")
+	fmt.Println(successStyle.Render("✅ Password saved successfully!"))
 }
 
 func listPasswords() {
-	masterPass := promptMasterPassword("Enter master password: ")
+	fmt.Println(headerStyle.Render("📋 Stored Passwords"))
+
+	masterPass := promptMasterPassword(labelStyle.Render("🔑 Master Password: "))
 
 	store, err := loadStore(masterPass)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("No passwords stored yet.")
+			fmt.Println(mutedStyle.Render("No passwords stored yet."))
 			return
 		}
-		fmt.Println("Error loading store (wrong password?):", err)
+		fmt.Println(errorStyle.Render("❌ Error loading store (wrong password?): " + err.Error()))
 		os.Exit(1)
 	}
 
 	if len(store.Credentials) == 0 {
-		fmt.Println("No passwords stored yet.")
+		fmt.Println(mutedStyle.Render("No passwords stored yet."))
 		return
 	}
 
-	fmt.Println("\nStored Passwords:")
-	fmt.Println(strings.Repeat("-", 60))
-	for _, cred := range store.Credentials {
-		fmt.Printf("Name: %s\n", cred.Name)
-		fmt.Printf("URL: %s\n", cred.URL)
-		fmt.Printf("Username: %s\n", cred.Username)
-		fmt.Println(strings.Repeat("-", 60))
+	for i, cred := range store.Credentials {
+		content := labelStyle.Render("Name: ") + valueStyle.Render(cred.Name) + "\n" +
+			labelStyle.Render("URL:  ") + valueStyle.Render(cred.URL) + "\n" +
+			labelStyle.Render("User: ") + valueStyle.Render(cred.Username)
+
+		if i < len(store.Credentials)-1 {
+			fmt.Println(boxStyle.Render(content))
+		} else {
+			fmt.Println(boxStyle.MarginBottom(0).Render(content))
+		}
 	}
+
+	fmt.Println()
+	fmt.Println(mutedStyle.Render(fmt.Sprintf("Total: %d password(s)", len(store.Credentials))))
 }
 
 func getPassword(name string) {
-	masterPass := promptMasterPassword("Enter master password: ")
+	fmt.Println(headerStyle.Render("🔍 Retrieving Password"))
+
+	masterPass := promptMasterPassword(labelStyle.Render("🔑 Master Password: "))
 
 	store, err := loadStore(masterPass)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("No passwords stored yet.")
+			fmt.Println(mutedStyle.Render("No passwords stored yet."))
 			return
 		}
-		fmt.Println("Error loading store (wrong password?):", err)
+		fmt.Println(errorStyle.Render("❌ Error loading store (wrong password?): " + err.Error()))
 		os.Exit(1)
 	}
 
 	for _, cred := range store.Credentials {
 		if cred.Name == name {
-			fmt.Println("\nCredential found:")
-			fmt.Printf("Name: %s\n", cred.Name)
-			fmt.Printf("URL: %s\n", cred.URL)
-			fmt.Printf("Username: %s\n", cred.Username)
-			fmt.Printf("Password: %s\n", cred.Password)
+			content := labelStyle.Render("Name:     ") + valueStyle.Render(cred.Name) + "\n" +
+				labelStyle.Render("URL:      ") + valueStyle.Render(cred.URL) + "\n" +
+				labelStyle.Render("Username: ") + valueStyle.Render(cred.Username) + "\n" +
+				labelStyle.Render("Password: ") + successStyle.Padding(0).Border(lipgloss.NormalBorder(), false).Render(cred.Password)
+
+			fmt.Println(boxStyle.Render(content))
 			return
 		}
 	}
 
-	fmt.Printf("No password found with name: %s\n", name)
+	fmt.Println(errorStyle.Render(fmt.Sprintf("❌ No password found with name: %s", name)))
 }
 
 func deletePassword(name string) {
-	masterPass := promptMasterPassword("Enter master password: ")
+	fmt.Println(headerStyle.Render("🗑️  Deleting Password"))
+
+	masterPass := promptMasterPassword(labelStyle.Render("🔑 Master Password: "))
 
 	store, err := loadStore(masterPass)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("No passwords stored yet.")
+			fmt.Println(mutedStyle.Render("No passwords stored yet."))
 			return
 		}
-		fmt.Println("Error loading store (wrong password?):", err)
+		fmt.Println(errorStyle.Render("❌ Error loading store (wrong password?): " + err.Error()))
 		os.Exit(1)
 	}
 
@@ -193,24 +290,24 @@ func deletePassword(name string) {
 	}
 
 	if !found {
-		fmt.Printf("No password found with name: %s\n", name)
+		fmt.Println(errorStyle.Render(fmt.Sprintf("❌ No password found with name: %s", name)))
 		return
 	}
 
 	store.Credentials = newCreds
 	if err := saveStore(store, masterPass); err != nil {
-		fmt.Println("Error saving store:", err)
+		fmt.Println(errorStyle.Render("❌ Error saving store: " + err.Error()))
 		os.Exit(1)
 	}
 
-	fmt.Printf("Password '%s' deleted successfully!\n", name)
+	fmt.Println(successStyle.Render(fmt.Sprintf("✅ Password '%s' deleted successfully!", name)))
 }
 
 func promptMasterPassword(prompt string) string {
 	fmt.Print(prompt)
 	passBytes, err := term.ReadPassword(int(syscall.Stdin))
 	if err != nil {
-		fmt.Println("\nError reading password:", err)
+		fmt.Println(errorStyle.Render("\n❌ Error reading password: " + err.Error()))
 		os.Exit(1)
 	}
 	fmt.Println()
@@ -221,7 +318,6 @@ func loadStore(masterPassword string) (*PasswordStore, error) {
 	data, err := os.ReadFile(dataFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Create new store with random salt
 			salt := make([]byte, saltSize)
 			if _, err := rand.Read(salt); err != nil {
 				return nil, err
@@ -234,7 +330,6 @@ func loadStore(masterPassword string) (*PasswordStore, error) {
 		return nil, err
 	}
 
-	// First, decrypt to get the salt and data
 	if len(data) < saltSize {
 		return nil, fmt.Errorf("corrupted data file")
 	}
@@ -268,7 +363,6 @@ func saveStore(store *PasswordStore, masterPassword string) error {
 		return err
 	}
 
-	// Prepend salt to encrypted data
 	output := append(store.Salt, encrypted...)
 
 	return os.WriteFile(dataFile, output, 0600)
