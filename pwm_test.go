@@ -133,72 +133,72 @@ func TestDecryptTamperedData(t *testing.T) {
 }
 
 // TestSaveLoadStore tests saving and loading the password store
-// func TestSaveLoadStore(t *testing.T) {
-// 	testFile := "test_passwords.enc"
-// 	defer os.Remove(testFile)
+func TestSaveLoadStore(t *testing.T) {
+	testFile := "test_passwords.enc"
+	defer os.Remove(testFile)
 
-// 	// Temporarily override dataFile
-// 	originalDataFile := dataFile
-// 	defer func() {
-// 		// This won't work since dataFile is const, but shows the intent
-// 		// In a real scenario, we'd refactor to make dataFile configurable
-// 	}()
+	// Temporarily override dataFile
+	// originalDataFile := dataFile
+	// defer func() {
+	// 	// This won't work since dataFile is const, but shows the intent
+	// 	// In a real scenario, we'd refactor to make dataFile configurable
+	// }()
 
-// 	password := "testmasterpass"
+	password := "testmasterpass"
 
-// 	// Create a store with test data
-// 	salt := make([]byte, saltSize)
-// 	rand.Read(salt)
+	// Create a store with test data
+	salt := make([]byte, saltSize)
+	rand.Read(salt)
 
-// 	store := &PasswordStore{
-// 		Salt: salt,
-// 		Credentials: []Credential{
-// 			{
-// 				Name:     "github",
-// 				URL:      "https://github.com",
-// 				Username: "testuser",
-// 				Password: "testpass123",
-// 			},
-// 			{
-// 				Name:     "gmail",
-// 				URL:      "https://gmail.com",
-// 				Username: "user@example.com",
-// 				Password: "gmailpass456",
-// 			},
-// 		},
-// 	}
+	store := &PasswordStore{
+		Salt: salt,
+		Credentials: []Credential{
+			{
+				Name:     "github",
+				URL:      "https://github.com",
+				Username: "testuser",
+				Password: "testpass123",
+			},
+			{
+				Name:     "gmail",
+				URL:      "https://gmail.com",
+				Username: "user@example.com",
+				Password: "gmailpass456",
+			},
+		},
+	}
 
-// 	// Save the store (we'll use a helper that accepts filename)
-// 	if err := saveStoreToFile(store, password, testFile); err != nil {
-// 		t.Fatalf("saveStore failed: %v", err)
-// 	}
+	// Save the store (we'll use a helper that accepts filename)
+	if err := saveStoreToFile(store, password, testFile); err != nil {
+		t.Fatalf("saveStore failed: %v", err)
+	}
 
-// 	// Load the store
-// 	loadedStore, err := loadStoreFromFile(password, testFile)
-// 	if err != nil {
-// 		t.Fatalf("loadStore failed: %v", err)
-// 	}
+	// Load the store
+	loadedStore, err := loadStoreFromFile(password, testFile)
+	if err != nil {
+		t.Fatalf("loadStore failed: %v", err)
+	}
 
-// 	// Verify data
-// 	if len(loadedStore.Credentials) != len(store.Credentials) {
-// 		t.Errorf("loaded store has %d credentials, want %d", len(loadedStore.Credentials), len(store.Credentials))
-// 	}
+	// Verify data
+	if len(loadedStore.Credentials) != len(store.Credentials) {
+		t.Errorf("loaded store has %d credentials, want %d", len(loadedStore.Credentials), len(store.Credentials))
+	}
 
-// 	for i, cred := range loadedStore.Credentials {
-// 		if cred.Name != store.Credentials[i].Name {
-// 			t.Errorf("credential %d name mismatch: got %s, want %s", i, cred.Name, store.Credentials[i].Name)
-// 		}
-// 		if cred.URL != store.Credentials[i].URL {
-// 			t.Errorf("credential %d URL mismatch: got %s, want %s", i, cred.URL, store.Credentials[i].URL)
-// 		}
-// 		if cred.Username != store.Credentials[i].Username {
-// 			t.Errorf("credential %d username mismatch: got %s, want %s", i, cred.Username, store.Credentials[i].Username)
-// 		}
-// 		if cred.Password != store.Credentials[i].Password {
-// 			t.Errorf("credential %d password mismatch: got %s, want %s", i, cred.Password, store.Credentials[i].Password)
-// 		}
-// 	}
-// }
+	for i, cred := range loadedStore.Credentials {
+		if cred.Name != store.Credentials[i].Name {
+			t.Errorf("credential %d name mismatch: got %s, want %s", i, cred.Name, store.Credentials[i].Name)
+		}
+		if cred.URL != store.Credentials[i].URL {
+			t.Errorf("credential %d URL mismatch: got %s, want %s", i, cred.URL, store.Credentials[i].URL)
+		}
+		if cred.Username != store.Credentials[i].Username {
+			t.Errorf("credential %d username mismatch: got %s, want %s", i, cred.Username, store.Credentials[i].Username)
+		}
+		if cred.Password != store.Credentials[i].Password {
+			t.Errorf("credential %d password mismatch: got %s, want %s", i, cred.Password, store.Credentials[i].Password)
+		}
+	}
+}
 
 // TestLoadStoreWrongPassword tests that wrong password fails to load
 func TestLoadStoreWrongPassword(t *testing.T) {
