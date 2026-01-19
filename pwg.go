@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	dataFile    = "passwords.enc"
-	saltSize    = 32
-	keySize     = 32
-	iterations  = 100000
+	dataFile   = "passwords.enc"
+	saltSize   = 32
+	keySize    = 32
+	iterations = 100000
 )
 
 type Credential struct {
@@ -50,13 +50,13 @@ func main() {
 		listPasswords()
 	case "get":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: password-manager get <name>")
+			fmt.Println("Usage: pwm get <name>")
 			os.Exit(1)
 		}
 		getPassword(os.Args[2])
 	case "delete":
 		if len(os.Args) < 3 {
-			fmt.Println("Usage: password-manager delete <name>")
+			fmt.Println("Usage: pwm delete <name>")
 			os.Exit(1)
 		}
 		deletePassword(os.Args[2])
@@ -69,10 +69,10 @@ func main() {
 func printUsage() {
 	fmt.Println("Secure Password Manager")
 	fmt.Println("\nUsage:")
-	fmt.Println("  password-manager add                  - Add a new password")
-	fmt.Println("  password-manager list                 - List all stored passwords")
-	fmt.Println("  password-manager get <name>           - Retrieve a specific password")
-	fmt.Println("  password-manager delete <name>        - Delete a password")
+	fmt.Println("  pwm add                  - Add a new password")
+	fmt.Println("  pwm list                 - List all stored passwords")
+	fmt.Println("  pwm get <name>           - Retrieve a specific password")
+	fmt.Println("  pwm delete <name>        - Delete a password")
 }
 
 func addPassword() {
