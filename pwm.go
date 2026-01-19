@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	dataFile   = "passwords.enc"
+	dataFile   = "pw.enc"
 	saltSize   = 32
 	keySize    = 32
 	iterations = 100000
